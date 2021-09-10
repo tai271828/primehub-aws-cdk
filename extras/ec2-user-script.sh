@@ -6,6 +6,35 @@ pwd
 yum update -y
 yum install -y jq
 
+EMAIL_NOTIFICATION_API="https://ykek6s29ol.execute-api.us-east-1.amazonaws.com/dev/one-click"
+
+function notification::register() {
+  local name=$1
+  local email=$2
+  if [[ "${email}" != "" ]]; then
+    curl -s --location --request POST "${EMAIL_NOTIFICATION_API}" \
+      --header 'Content-Type: application/json' \
+      --data-raw "{
+          \"email\": \"${email}\",
+          \"name\": \"${name}\"
+        }" | jq .id -r
+  fi
+}
+
+function notification::completed() {
+  local name=$1
+  local id=$2
+  cf_output=$(aws cloudformation describe-stacks --stack-name eks-${name}-cdk-stack --region us-east-1 --query "Stacks[0].Outputs[*]" --output text)
+  PRIMEHUB_URL=$(echo ${cf_output} | grep ^PrimeHubURL | awk '{$1 = ""; print $0;}' | sed 's/ //g')
+  if [[ "${id}" != "" ]]; then
+    curl -s --location --request PATCH "${EMAIL_NOTIFICATION_API}/${id}" \
+      --header 'Content-Type: application/json' \
+      --data-raw "{
+          \"endpoint\": \"${PRIMEHUB_URL}\"
+        }"
+  fi
+}
+
 echo "Install Node"
 cd /root
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
@@ -37,7 +66,6 @@ PASSWORD="${PRIMEHUB_PASSWORD:-$(openssl rand -hex 16)}"
 PRIMEHUB_VERSION='3.7.2-aws.2'
 EMAIL_NOTIFICATION=${EMAIL_NOTIFICATION:-}
 EMAIL_NOTIFICATION_ID=''
-EMAIL_NOTIFICATION_API="https://ykek6s29ol.execute-api.us-east-1.amazonaws.com/dev/one-click"
 echo "Name: ${AWS_STACK_NAME}"
 echo "Mode: ${PRIMEHUB_MODE}"
 echo "Region: ${AWS_REGION}"
@@ -65,29 +93,3 @@ notification::completed ${AWS_STACK_NAME} ${EMAIL_NOTIFICATION_ID}
 echo "Completed"
 exit 0
 
-function notification::register() {
-  local name=$1
-  local email=$2
-  if [[ "${email}" != "" ]]; then
-    curl -s --location --request POST "https://ykek6s29ol.execute-api.us-east-1.amazonaws.com/dev/one-click" \
-      --header 'Content-Type: application/json' \
-      --data-raw "{
-          \"email\": \"${email}\",
-          \"name\": \"${name}\"
-        }" | jq .id -r
-  fi
-}
-
-function notification::completed() {
-  local name=$1
-  local id=$2
-  cf_output=$(aws cloudformation describe-stacks --stack-name eks-${name}-cdk-stack --region us-east-1 --query "Stacks[0].Outputs[*]" --output text)
-  PRIMEHUB_URL=$(echo ${cf_output} | grep ^PrimeHubURL | awk '{$1 = ""; print $0;}' | sed 's/ //g')
-  if [[ "${id}" != "" ]]; then
-    curl -s --location --request PATCH "https://ykek6s29ol.execute-api.us-east-1.amazonaws.com/dev/one-click/${id}" \
-      --header 'Content-Type: application/json' \
-      --data-raw "{
-          \"endpoint\": \"${PRIMEHUB_URL}\"
-        }"
-  fi
-}
