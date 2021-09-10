@@ -24,13 +24,18 @@ function notification::register() {
 function notification::completed() {
   local name=$1
   local id=$2
-  cf_output=$(aws cloudformation describe-stacks --stack-name eks-${name}-cdk-stack --region us-east-1 --query "Stacks[0].Outputs[*]" --output text)
+  local region=$3
+
+  cf_output=$(aws cloudformation describe-stacks --stack-name eks-${name}-cdk-stack --region ${region} --query "Stacks[0].Outputs[*]" --output text)
+  stackId=$(aws cloudformation describe-stacks --stack-name eks-${name}-cdk-stack --region ${region} --query Stacks[0].StackId | sed 's/"//g')
   PRIMEHUB_URL=$(echo ${cf_output} | grep ^PrimeHubURL | awk '{$1 = ""; print $0;}' | sed 's/ //g')
   if [[ "${id}" != "" ]]; then
     curl -s --location --request PATCH "${EMAIL_NOTIFICATION_API}/${id}" \
       --header 'Content-Type: application/json' \
       --data-raw "{
-          \"endpoint\": \"${PRIMEHUB_URL}\"
+          \"endpoint\": \"${PRIMEHUB_URL}\",
+          \"region\": \"${region}\",
+          \"stackId\": \"${stackId}\"
         }"
   fi
 }
@@ -89,7 +94,7 @@ export AWS_REGION
   --keycloak-password ${PASSWORD} \
   --primehub-password ${PASSWORD} || exit 1
 
-notification::completed ${AWS_STACK_NAME} ${EMAIL_NOTIFICATION_ID}
+notification::completed ${AWS_STACK_NAME} ${EMAIL_NOTIFICATION_ID} ${AWS_REGION}
 echo "Completed"
 exit 0
 
