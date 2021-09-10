@@ -141,9 +141,9 @@ Parameters:
   PrimeHubPassword:
     Type: String
     Description: Please setup the password of default PrimeHub user
-    MinLength: "8"
-    MaxLength: "64"
-    AllowedPattern: "^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$"
+    MinLength: 8
+    MaxLength: 64
+    AllowedPattern: ^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{8,}$
     ConstraintDescription: "Minimum eight characters, at least one letter and one number"
   PrimeHubInstallMode:
     Type: String
